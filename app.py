@@ -1,0 +1,214 @@
+import os
+from flask import Flask, render_template, request, jsonify
+from tutor_agent import SmartTutorAgent
+from config import FLASK_HOST, FLASK_PORT, FLASK_DEBUG
+
+app = Flask(__name__)
+
+# 初始化智能体
+tutor_agent = SmartTutorAgent()
+tutor_agent.conversation_history.append({"role": "assistant", "content": tutor_agent.welcome_message})
+
+
+# 首页路由
+@app.route('/')
+def index():
+    return render_template('index.html', history=tutor_agent.conversation_history)
+
+
+# 聊天接口
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_message = request.json.get('message')
+    if not user_message:
+        return jsonify({"error": "No message provided"}), 400
+
+    assistant_response = tutor_agent.process_query(user_message)
+    return jsonify({"response": assistant_response})
+
+
+# 生成前端模板（美化版：常规聊天对齐+简洁样式）
+def create_frontend_template():
+    if not os.path.exists('templates'):
+        os.makedirs('templates')
+
+    html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SmartTutor - Homework Tutor</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: 'Arial', sans-serif;
+        }
+        body { 
+            background-color: #f5f5f5;
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .chat-container {
+            background-color: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            height: 420px; /* 单屏高度 */
+            overflow-y: auto;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .chat-header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2196f3;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        /* 消息样式：均左对齐，区分背景色 */
+        .message {
+            margin: 10px 0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 85%; /* 宽度放宽，不挤 */
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        /* 用户消息：浅蓝色背景，左对齐 */
+        .user-message {
+            background-color: #e3f2fd;
+            border: 1px solid #d1e7dd;
+        }
+        /* AI消息：白色背景，左对齐 */
+        .assistant-message {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+        }
+        /* 消息标签（区分用户/AI） */
+        .message-label {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .user-label {
+            color: #2196f3;
+        }
+        .assistant-label {
+            color: #4caf50;
+        }
+        /* 输入框区域 */
+        .input-area {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        #message-input {
+            flex: 1;
+            padding: 14px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border 0.2s;
+        }
+        #message-input:focus {
+            border-color: #2196f3;
+        }
+        #send-btn {
+            padding: 14px 28px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        #send-btn:hover {
+            background-color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-header">SmartTutor</div>
+    <div class="chat-container" id="chat-history">
+        {% for msg in history %}
+            <div class="message {{ 'user-message' if msg.role == 'user' else 'assistant-message' }}">
+                <div class="message-label {{ 'user-label' if msg.role == 'user' else 'assistant-label' }}">
+                    {{ 'You' if msg.role == 'user' else 'SmartTutor' }}
+                </div>
+                {{ msg.content|safe }}
+            </div>
+        {% endfor %}
+    </div>
+    <div class="input-area">
+        <input type="text" id="message-input" placeholder="Type your homework question...">
+        <button id="send-btn">Send</button>
+    </div>
+
+    <script>
+        const sendMessage = () => {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatHistory = document.getElementById('chat-history');
+            // 创建用户消息元素（左对齐）
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user-message';
+            userMsg.innerHTML = `
+                <div class="message-label user-label">You</div>
+                ${message}
+            `;
+            chatHistory.appendChild(userMsg);
+            input.value = '';
+
+            // 发送请求
+            fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            })
+            .then(res => res.json())
+            .then(data => {
+                // 创建AI消息元素（左对齐）
+                const assistantMsg = document.createElement('div');
+                assistantMsg.className = 'message assistant-message';
+                assistantMsg.innerHTML = `
+                    <div class="message-label assistant-label">SmartTutor</div>
+                    ${data.response}
+                `;
+                chatHistory.appendChild(assistantMsg);
+                // 滚动到底部
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+                // 渲染公式
+                MathJax.typeset();
+            })
+            .catch(err => console.error('Error:', err));
+        };
+
+        // 绑定事件
+        document.getElementById('send-btn').addEventListener('click', sendMessage);
+        document.getElementById('message-input').addEventListener('keypress', e => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // 初始渲染公式
+        MathJax.typeset();
+    </script>
+</body>
+</html>
+    """
+    with open('templates/index.html', 'w', encoding='utf-8') as f:
+        f.write(html_content.strip())
+
+
+if __name__ == "__main__":
+    create_frontend_template()
+    app.run(host=FLASK_HOST, port=FLASK_PORT, debug=FLASK_DEBUG)
