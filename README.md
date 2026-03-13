@@ -10,7 +10,7 @@ A lightweight, cost-efficient AI tutoring application designed to assist univers
 1. Clone the repository and navigate to the project directory:
    ```bash
    git clone <repo-url>
-   cd smarttutor
+   cd smart_tutor_agent
    ```
 2. Install dependencies:
    ```bash
