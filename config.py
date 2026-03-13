@@ -1,5 +1,5 @@
 # 项目核心配置
-CSIT5900_API_KEY = "11cfe99ad9f941d1a3a59f0ef1de0d8d"  # 你的API Key
+CSIT5900_API_KEY = "your api key "  # 你的API Key
 AZURE_ENDPOINT = "https://hkust.azure-api.net"
 API_VERSION = "2024-10-21"
 MODEL_NAME = "gpt-4o-mini"
